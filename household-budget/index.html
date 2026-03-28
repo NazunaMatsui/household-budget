@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#fff5f8" />
+  <meta name="application-name" content="家計簿" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="家計簿" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="msapplication-TileColor" content="#fff5f8" />
+  <title>家計簿 · 収入・支出管理</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-motion" aria-hidden="true">
+    <div class="bg-motion__gradient"></div>
+    <div class="bg-motion__blob bg-motion__blob--1"></div>
+    <div class="bg-motion__blob bg-motion__blob--2"></div>
+    <div class="bg-motion__blob bg-motion__blob--3"></div>
+    <div class="bg-motion__blob bg-motion__blob--4"></div>
+    <div class="bg-motion__star-lines"></div>
+    <div class="bg-motion__sparkle"></div>
+  </div>
+  <div class="app">
+    <header class="header scroll-reveal app-shell">
+      <div class="header__brand">
+        <span class="header__logo" aria-hidden="true">✿</span>
+        <div>
+          <h1 class="header__title">家計簿</h1>
+          <p class="header__subtitle">トップで合計を確認し、入力で取引を記録、経費でメモと領収書を保管します</p>
+        </div>
+      </div>
+      <div class="header__actions">
+        <button type="button" class="btn btn--ghost" id="btn-export">バックアップ（JSON）</button>
+        <button type="button" class="btn btn--ghost" id="btn-export-gdrive">ドライブへ保存</button>
+        <button type="button" class="btn btn--ghost btn--small" id="btn-gdrive-settings" title="Googleドライブの保存先とクライアントID">ドライブ設定</button>
+        <label class="btn btn--ghost btn--file">
+          復元
+          <input type="file" id="input-import" accept="application/json" hidden />
+        </label>
+        <button type="button" class="btn btn--ghost btn--small" id="btn-pwa-guide" title="ホーム画面への追加方法">
+          アプリで使う
+        </button>
+      </div>
+    </header>
+
+    <nav class="app-nav scroll-reveal app-shell" aria-label="ページ切替">
+      <a href="#/" class="app-nav__link" id="nav-home" data-route="home">トップ（合計・内訳）</a>
+      <a href="#/input/food" class="app-nav__link" id="nav-input" data-route="input">入力</a>
+      <a href="#/expenses" class="app-nav__link" id="nav-expenses" data-route="expenses">経費</a>
+    </nav>
+
+    <div class="month-toolbar scroll-reveal app-shell">
+      <div class="month-toolbar__inner month-nav">
+        <button type="button" class="btn btn--icon" id="btn-prev-month" aria-label="前月">‹</button>
+        <div class="month-nav__label-wrap" id="month-toolbar-label-wrap">
+          <time id="current-month-label" class="month-nav__label"></time>
+        </div>
+        <button type="button" class="btn btn--icon" id="btn-next-month" aria-label="翌月">›</button>
+        <button type="button" class="btn btn--small btn--ghost" id="btn-this-month">今月</button>
+        <button type="button" class="month-nav__calendar-btn" id="btn-month-picker" aria-label="カレンダーで月を選択" aria-haspopup="dialog">
+          <svg class="month-nav__calendar-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <main id="page-home" class="page">
+      <section class="panel panel--summary scroll-reveal" aria-labelledby="summary-heading">
+        <h2 id="summary-heading" class="visually-hidden">今月のサマリー</h2>
+        <div class="summary-grid summary-grid--summary-row">
+          <article class="summary-card summary-card--income">
+            <span class="summary-card__label">今月の収入</span>
+            <span class="summary-card__value" id="sum-income">¥0</span>
+          </article>
+          <article class="summary-card summary-card--expense summary-card--variable">
+            <span class="summary-card__label">変動支出</span>
+            <span class="summary-card__value" id="sum-variable-expense">¥0</span>
+          </article>
+          <article class="summary-card summary-card--fixed summary-card--fixed-summary">
+            <span class="summary-card__label">固定支出（月額）</span>
+            <span class="summary-card__value" id="sum-fixed-expense">¥94,391</span>
+          </article>
+          <article class="summary-card summary-card--combined-outflow">
+            <span class="summary-card__label">固定支出＋変動支出</span>
+            <span class="summary-card__value" id="sum-top-fixed-plus-variable">¥94,391</span>
+          </article>
+          <article class="summary-card summary-card--balance">
+            <span class="summary-card__label">貯蓄額</span>
+            <span class="summary-card__value" id="sum-balance">¥0</span>
+          </article>
+          <article class="summary-card summary-card--savings-rate">
+            <span class="summary-card__label">貯蓄率</span>
+            <span class="summary-card__value" id="sum-savings-rate">—</span>
+          </article>
+        </div>
+      </section>
+
+    <section class="panel panel--project-income-home scroll-reveal" aria-labelledby="project-income-home-heading">
+      <h2 id="project-income-home-heading" class="panel__title">収入（案件）</h2>
+      <ul class="fixed-list" id="project-income-list"></ul>
+      <p class="variable-breakdown-empty" id="project-income-empty" hidden>この月に登録された案件収入はありません</p>
+      <div class="fixed-list__total project-income-home__total">
+        <span class="fixed-list__total-label">案件収入 合計（表示中の月）</span>
+        <span class="fixed-list__total-value fixed-list__total-value--income" id="project-income-month-total">¥0</span>
+      </div>
+    </section>
+
+    <section class="panel panel--fixed scroll-reveal" aria-labelledby="fixed-heading">
+      <h2 id="fixed-heading" class="panel__title">固定支出（内訳）</h2>
+      <p class="panel__lead panel__lead--compact">
+        項目の追加・修正は<strong>入力</strong>の「固定支出」タブから行えます。
+      </p>
+      <ul class="fixed-list" id="fixed-expense-list"></ul>
+      <div class="fixed-list__total">
+        <span class="fixed-list__total-label">固定支出 合計（月額）</span>
+        <span class="fixed-list__total-value" id="fixed-expense-total-line">¥94,391</span>
+      </div>
+    </section>
+
+    <section class="panel panel--variable-breakdown scroll-reveal" aria-labelledby="variable-breakdown-heading">
+      <h2 id="variable-breakdown-heading" class="panel__title">変動支出（内訳）</h2>
+      <p class="panel__lead panel__lead--compact">各行をタップすると、取引ごとの日付・金額・メモを表示します（もう一度タップで閉じます）。</p>
+      <ul class="fixed-list variable-breakdown-list" id="variable-expense-by-category"></ul>
+      <p class="variable-breakdown-empty" id="variable-breakdown-empty" hidden>この月（引き落とし月）に計上する変動支出はありません</p>
+      <div class="fixed-list__total variable-breakdown__total">
+        <span class="fixed-list__total-label">変動支出 合計（表示中の月）</span>
+        <span class="fixed-list__total-value" id="variable-expense-month-total">¥0</span>
+      </div>
+    </section>
+
+    <section class="panel panel--fixed-variable-sum scroll-reveal" aria-labelledby="fixed-variable-sum-heading">
+      <h2 id="fixed-variable-sum-heading" class="panel__title">固定支出＋変動支出</h2>
+      <div class="fixed-variable-sum">
+        <div class="fixed-variable-sum__rows">
+          <div class="fixed-variable-sum__row">
+            <span class="fixed-variable-sum__row-label">固定支出（月額）</span>
+            <span class="fixed-variable-sum__row-value" id="combined-line-fixed">¥94,391</span>
+          </div>
+          <div class="fixed-variable-sum__row">
+            <span class="fixed-variable-sum__row-label">変動支出（引き落とし月ベース）</span>
+            <span class="fixed-variable-sum__row-value" id="combined-line-variable">¥0</span>
+          </div>
+        </div>
+        <div class="fixed-variable-sum__total">
+          <span class="fixed-variable-sum__total-label">合計</span>
+          <span class="fixed-variable-sum__total-value" id="sum-fixed-plus-variable">¥94,391</span>
+        </div>
+      </div>
+    </section>
+
+      <footer class="footer scroll-reveal">
+        <p>データはこのブラウザのローカルに保存されます。別端末と同期する場合は「バックアップ」を利用してください。</p>
+      </footer>
+    </main>
+
+    <main id="page-input" class="page" hidden>
+      <div class="panel input-hub scroll-reveal">
+        <h2 class="input-hub__title">入力</h2>
+        <p class="input-hub__lead">記録する内容を選んでください。上部の月切替はトップ・入力・経費で共通です。</p>
+        <div class="input-tabs" role="tablist" aria-label="入力の種類">
+          <a href="#/input/food" class="input-tabs__tab" data-input-tab="food" role="tab">食費（PayPay）</a>
+          <a href="#/input/saison" class="input-tabs__tab" data-input-tab="saison" role="tab">セゾン</a>
+          <a href="#/input/mitsui" class="input-tabs__tab" data-input-tab="mitsui" role="tab">三井住友カード</a>
+          <a href="#/input/project" class="input-tabs__tab" data-input-tab="project" role="tab">案件登録</a>
+          <a href="#/input/variable" class="input-tabs__tab" data-input-tab="variable" role="tab">変動支出</a>
+          <a href="#/input/fixed" class="input-tabs__tab" data-input-tab="fixed" role="tab">固定支出</a>
+          <a href="#/input/trade" class="input-tabs__tab" data-input-tab="trade" role="tab">取引を追加</a>
+          <a href="#/input/list" class="input-tabs__tab" data-input-tab="list" role="tab">取引一覧</a>
+        </div>
+      </div>
+
+      <section
+        id="input-panel-food"
+        class="input-panel panel panel--food scroll-reveal"
+        aria-labelledby="food-heading"
+        hidden
+      >
+        <h2 id="food-heading" class="panel__title">食費（PayPay）</h2>
+        <div class="food-stats" aria-live="polite">
+          <p class="food-stats__line">
+            本日の PayPay（食費）合計 <strong id="food-sum-today" class="food-stats__value">¥0</strong>
+          </p>
+          <p class="food-stats__line">
+            引き落とし月が表示中の月となる利用分の合計 <strong id="food-sum-month" class="food-stats__value">¥0</strong>
+          </p>
+          <p class="food-stats__hint">月末〆・翌月27日引き落とし（例: 3月利用分は4月画面に反映）</p>
+        </div>
+        <form id="form-food" class="form form--food" novalidate>
+          <p class="food-recording-date" id="food-recording-date-wrap">
+            <span class="food-recording-date__prefix">記録日（当日）</span>
+            <time id="food-recording-date" class="food-recording-date__value" datetime=""></time>
+          </p>
+          <p class="usage-period-line" id="food-usage-period" aria-live="polite"></p>
+          <div class="form--food__grid">
+            <div class="form__row">
+              <label for="food-amount">金額（円）</label>
+              <input
+                type="number"
+                id="food-amount"
+                name="food-amount"
+                class="input--amount-center"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                required
+                placeholder="例: 850"
+              />
+            </div>
+            <div class="form__row form__row--grow">
+              <label for="food-note">メモ（任意）</label>
+              <input type="text" id="food-note" name="food-note" maxlength="200" placeholder="昼食・コンビニなど" />
+            </div>
+            <div class="form__row form__row--submit">
+              <span class="form__legend visually-hidden">送信</span>
+              <button type="button" class="btn btn--primary btn--food">食費（PayPay）を記録</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section
+        id="input-panel-saison"
+        class="input-panel panel panel--food scroll-reveal"
+        aria-labelledby="saison-heading"
+        hidden
+      >
+        <h2 id="saison-heading" class="panel__title">セゾン</h2>
+        <p class="panel__lead">
+          当日分のセゾン利用分を入力してください。日付は<strong>今日の日付</strong>に自動で記録され、カテゴリは「セゾン」です。
+        </p>
+        <div class="food-stats" aria-live="polite">
+          <p class="food-stats__line">
+            本日のセゾン合計 <strong id="saison-sum-today" class="food-stats__value">¥0</strong>
+          </p>
+          <p class="food-stats__line">
+            引き落とし月が表示中の月となる利用分の合計 <strong id="saison-sum-month" class="food-stats__value">¥0</strong>
+          </p>
+          <p class="food-stats__hint">10日〆・翌月4日引き落とし（1〜10日利用は+1ヶ月、11日以降は+2ヶ月で反映）</p>
+        </div>
+        <form id="form-saison" class="form form--food" novalidate>
+          <p class="food-recording-date" id="saison-recording-date-wrap">
+            <span class="food-recording-date__prefix">記録日（当日）</span>
+            <time id="saison-recording-date" class="food-recording-date__value" datetime=""></time>
+          </p>
+          <p class="usage-period-line" id="saison-usage-period" aria-live="polite"></p>
+          <div class="form--food__grid">
+            <div class="form__row">
+              <label for="saison-amount">金額（円）</label>
+              <input
+                type="number"
+                id="saison-amount"
+                name="saison-amount"
+                class="input--amount-center"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                required
+                placeholder="例: 3200"
+              />
+            </div>
+            <div class="form__row form__row--grow">
+              <label for="saison-note">メモ（任意）</label>
+              <input type="text" id="saison-note" name="saison-note" maxlength="200" placeholder="店名・明細など" />
+            </div>
+            <div class="form__row form__row--submit">
+              <span class="form__legend visually-hidden">送信</span>
+              <button type="button" class="btn btn--primary btn--food">セゾンを記録</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section
+        id="input-panel-mitsui"
+        class="input-panel panel panel--food scroll-reveal"
+        aria-labelledby="mitsui-heading"
+        hidden
+      >
+        <h2 id="mitsui-heading" class="panel__title">三井住友カード</h2>
+        <p class="panel__lead">
+          当日分の三井住友カード利用分を入力してください。日付は<strong>今日の日付</strong>に自動で記録され、カテゴリは「三井住友カード」です。
+        </p>
+        <div class="food-stats" aria-live="polite">
+          <p class="food-stats__line">
+            本日の三井住友カード合計 <strong id="mitsui-sum-today" class="food-stats__value">¥0</strong>
+          </p>
+          <p class="food-stats__line">
+            引き落とし月が表示中の月となる利用分の合計 <strong id="mitsui-sum-month" class="food-stats__value">¥0</strong>
+          </p>
+          <p class="food-stats__hint">15日〆・翌月10日引き落とし（1〜15日利用は+1ヶ月、16日以降は+2ヶ月で反映）</p>
+        </div>
+        <form id="form-mitsui" class="form form--food" novalidate>
+          <p class="food-recording-date" id="mitsui-recording-date-wrap">
+            <span class="food-recording-date__prefix">記録日（当日）</span>
+            <time id="mitsui-recording-date" class="food-recording-date__value" datetime=""></time>
+          </p>
+          <p class="usage-period-line" id="mitsui-usage-period" aria-live="polite"></p>
+          <div class="form--food__grid">
+            <div class="form__row">
+              <label for="mitsui-amount">金額（円）</label>
+              <input
+                type="number"
+                id="mitsui-amount"
+                name="mitsui-amount"
+                class="input--amount-center"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                required
+                placeholder="例: 5280"
+              />
+            </div>
+            <div class="form__row form__row--grow">
+              <label for="mitsui-note">メモ（任意）</label>
+              <input type="text" id="mitsui-note" name="mitsui-note" maxlength="200" placeholder="店名・明細など" />
+            </div>
+            <div class="form__row form__row--submit">
+              <span class="form__legend visually-hidden">送信</span>
+              <button type="button" class="btn btn--primary btn--food">三井住友カードを記録</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section
+        id="input-panel-project"
+        class="input-panel panel panel--project-income scroll-reveal"
+        aria-labelledby="project-income-heading"
+        hidden
+      >
+        <h2 id="project-income-heading" class="panel__title">案件登録</h2>
+        <p class="panel__lead">
+          案件名と金額を入力してください。記録は<strong>表示中の月</strong>に紐づきます（上部の月切替で対象月を選んでから登録してください）。カテゴリは<strong>案件</strong>として収入に計上され、トップの「今月の収入」と「収入（案件）」に反映されます。
+        </p>
+        <div class="food-stats food-stats--project-income" aria-live="polite">
+          <p class="food-stats__line">
+            表示中の月の案件収入合計 <strong id="project-sum-month" class="food-stats__value food-stats__value--income">¥0</strong>
+          </p>
+        </div>
+        <form id="form-project-income" class="form form--food" novalidate>
+          <p class="food-recording-date food-recording-date--project-income" id="project-recording-date-wrap">
+            <span class="food-recording-date__prefix">記録月（表示中の月）</span>
+            <time id="project-recording-date" class="food-recording-date__value" datetime=""></time>
+          </p>
+          <p class="usage-period-line" id="project-usage-period" aria-live="polite"></p>
+          <div class="form--food__grid">
+            <div class="form__row form__row--grow">
+              <label for="project-income-name">案件名</label>
+              <input
+                type="text"
+                id="project-income-name"
+                name="project-income-name"
+                maxlength="200"
+                required
+                placeholder="例: ○○株式会社 デザイン費"
+              />
+            </div>
+            <div class="form__row">
+              <label for="project-income-amount">金額（円）</label>
+              <input
+                type="number"
+                id="project-income-amount"
+                name="project-income-amount"
+                class="input--amount-center"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                required
+                placeholder="例: 150000"
+              />
+            </div>
+            <div class="form__row form__row--submit">
+              <span class="form__legend visually-hidden">送信</span>
+              <button type="button" class="btn btn--primary btn--food">案件を登録</button>
+            </div>
+          </div>
+        </form>
+        <div class="project-input-breakdown">
+          <h3 class="project-input-breakdown__title">表示中の月の案件別内訳</h3>
+          <ul class="fixed-list project-input-breakdown__list" id="project-income-input-breakdown"></ul>
+          <p class="project-input-breakdown__empty" id="project-income-input-breakdown-empty" hidden>この月に案件の登録はまだありません</p>
+        </div>
+      </section>
+
+      <section
+        id="input-panel-variable"
+        class="input-panel panel panel--variable-pay scroll-reveal"
+        aria-labelledby="variable-pay-heading"
+        hidden
+      >
+        <h2 id="variable-pay-heading" class="panel__title">変動支出</h2>
+        <p class="panel__lead">
+          dカード・水道など、項目を選んで記録します。食費（PayPay）・セゾン・三井住友カードはそれぞれ専用タブから入力してください。日付は<strong>今日の日付</strong>に自動で記録されます。水道は奇数月の引き落としです（金額は引き落とし月に入力してください）。
+        </p>
+        <form id="form-variable-pay" class="form form--variable-pay" novalidate>
+          <p class="varpay-recording-date">
+            <span class="varpay-recording-date__prefix">記録日（当日）</span>
+            <time id="variable-pay-recording-date" class="varpay-recording-date__value" datetime=""></time>
+          </p>
+          <p class="usage-period-line" id="variable-pay-usage-period" aria-live="polite"></p>
+          <div class="form--variable-pay__grid">
+            <div class="form__row">
+              <label for="variable-pay-item">項目</label>
+              <select id="variable-pay-item" name="variable-pay-item" required></select>
+            </div>
+            <div class="form__row">
+              <label for="variable-pay-amount">金額（円）</label>
+              <input
+                type="number"
+                id="variable-pay-amount"
+                name="variable-pay-amount"
+                class="input--amount-center"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                required
+                placeholder="例: 5280"
+              />
+            </div>
+            <div class="form__row form__row--grow">
+              <label for="variable-pay-note">メモ（任意）</label>
+              <input type="text" id="variable-pay-note" name="variable-pay-note" maxlength="200" placeholder="店名・明細など" />
+            </div>
+            <div class="form__row form__row--submit">
+              <span class="form__legend visually-hidden">送信</span>
+              <button type="button" class="btn btn--primary btn--variable-pay">変動支出を記録</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section
+        id="input-panel-fixed"
+        class="input-panel panel panel--variable-pay scroll-reveal"
+        aria-labelledby="fixed-expense-input-heading"
+        hidden
+      >
+        <h2 id="fixed-expense-input-heading" class="panel__title">固定支出</h2>
+        <p class="panel__lead">
+          家賃・保険・サブスクなど、毎月の<strong>項目名と月額（円）</strong>を登録します。日付は不要です。トップの「固定支出（月額）」に反映されます。
+        </p>
+        <form id="form-fixed-expense-input" class="form form--variable-pay" novalidate>
+          <div class="form--variable-pay__grid">
+            <div class="form__row form__row--grow">
+              <label for="fixed-expense-input-name">項目名</label>
+              <input
+                type="text"
+                id="fixed-expense-input-name"
+                name="fixed-expense-input-name"
+                maxlength="80"
+                required
+                placeholder="例: 家賃"
+                autocomplete="off"
+              />
+            </div>
+            <div class="form__row">
+              <label for="fixed-expense-input-amount">月額（円）</label>
+              <input
+                type="number"
+                id="fixed-expense-input-amount"
+                name="fixed-expense-input-amount"
+                class="input--amount-center"
+                min="0"
+                step="1"
+                inputmode="numeric"
+                required
+                placeholder="例: 73490"
+              />
+            </div>
+            <div class="form__row form__row--submit">
+              <span class="form__legend visually-hidden">送信</span>
+              <button type="button" class="btn btn--primary btn--variable-pay">固定支出を登録</button>
+            </div>
+          </div>
+        </form>
+        <div class="project-input-breakdown">
+          <h3 class="project-input-breakdown__title">登録済みの項目</h3>
+          <ul class="fixed-list project-input-breakdown__list" id="fixed-expense-input-list"></ul>
+          <div class="fixed-list__total fixed-expense-input__total">
+            <span class="fixed-list__total-label">固定支出 合計（月額）</span>
+            <span class="fixed-list__total-value" id="fixed-expense-input-total-line">¥0</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="input-panel-trade" class="input-panel panel scroll-reveal" aria-labelledby="form-heading" hidden>
+        <h2 id="form-heading" class="panel__title">取引を追加</h2>
+        <form id="form-entry" class="form" novalidate>
+          <fieldset class="form__row form__row--radio">
+            <legend class="form__legend">種別</legend>
+            <label class="radio">
+              <input type="radio" name="kind" value="income" checked />
+              <span>収入</span>
+            </label>
+            <label class="radio">
+              <input type="radio" name="kind" value="expense" />
+              <span>支出</span>
+            </label>
+          </fieldset>
+          <div class="form__row">
+            <label for="field-date">日付</label>
+            <div class="date-field">
+              <input type="date" id="field-date" name="date" class="date-field__input" required readonly />
+              <button type="button" class="date-field__calendar-btn" aria-label="カレンダーを開く">
+                <svg class="date-field__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="form__row">
+            <label for="field-amount">金額（円）</label>
+            <input type="number" id="field-amount" name="amount" class="input--amount-center" min="1" step="1" inputmode="numeric" required placeholder="例: 120000" />
+          </div>
+          <div class="form__row">
+            <label for="field-category">カテゴリ</label>
+            <select id="field-category" name="category" required></select>
+          </div>
+          <p class="usage-period-line" id="trade-usage-period" aria-live="polite"></p>
+          <div class="form__row">
+            <label for="field-note">メモ（任意）</label>
+            <input type="text" id="field-note" name="note" maxlength="200" placeholder="内容や取引先など" />
+          </div>
+          <button type="button" class="btn btn--primary">登録する</button>
+        </form>
+      </section>
+
+      <section id="input-panel-list" class="input-panel panel scroll-reveal" aria-labelledby="list-heading" hidden>
+        <div class="panel__head">
+          <h2 id="list-heading" class="panel__title">取引一覧</h2>
+          <div class="filters">
+            <label class="visually-hidden" for="filter-kind">種別で絞り込み</label>
+            <select id="filter-kind" class="select">
+              <option value="all">すべて</option>
+              <option value="income">収入のみ</option>
+              <option value="expense">支出のみ</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">日付</th>
+                <th scope="col">種別</th>
+                <th scope="col">カテゴリ</th>
+                <th scope="col" class="table__num">金額</th>
+                <th scope="col">メモ</th>
+                <th scope="col" class="table__actions">操作</th>
+              </tr>
+            </thead>
+            <tbody id="entries-body"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="empty-state" hidden>この月に該当する取引はありません</p>
+      </section>
+
+      <footer class="footer scroll-reveal">
+        <p>データはこのブラウザのローカルに保存されます。別端末と同期する場合は「バックアップ」を利用してください。</p>
+      </footer>
+    </main>
+
+    <main id="page-expenses" class="page page--expenses" hidden aria-labelledby="expenses-page-heading">
+      <section class="panel panel--expense-records scroll-reveal" aria-labelledby="expenses-page-heading">
+        <h2 id="expenses-page-heading" class="panel__title">経費（メモ・領収書）</h2>
+        <p class="panel__lead">
+          家計簿の取引とは別に、<strong>メモ</strong>と<strong>領収書の写真</strong>を残せます。写真は端末内で縮小して保存します（容量が大きいとブラウザの保存上限に達する場合があります）。一覧は上部の<strong>表示月</strong>に合わせて絞り込みます。
+        </p>
+        <form id="form-expense-record" class="form form--expense-record" novalidate>
+          <div class="form__row">
+            <label for="expense-record-date">日付（一覧の月切替と連動）</label>
+            <div class="date-field">
+              <input
+                type="date"
+                id="expense-record-date"
+                name="expense-record-date"
+                class="date-field__input"
+                required
+                readonly
+              />
+              <button type="button" class="date-field__calendar-btn" aria-label="カレンダーを開く">
+                <svg class="date-field__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="form__row">
+            <label for="expense-record-memo">メモ</label>
+            <textarea
+              id="expense-record-memo"
+              name="expense-record-memo"
+              rows="4"
+              maxlength="2000"
+              placeholder="店名・用途・金額メモなど（写真のみでも保存できます）"
+            ></textarea>
+          </div>
+          <div class="form__row">
+            <span id="expense-photo-label" class="form__legend form__legend--inline">領収書の写真</span>
+            <div class="expense-photo-actions" role="group" aria-labelledby="expense-photo-label">
+              <input
+                type="file"
+                id="expense-record-photo-browse"
+                class="visually-hidden"
+                accept="image/*"
+                tabindex="-1"
+                aria-label="ファイルを参照して画像を選ぶ"
+              />
+              <input
+                type="file"
+                id="expense-record-photo-camera"
+                class="visually-hidden"
+                accept="image/*"
+                capture="environment"
+                tabindex="-1"
+                aria-label="カメラで写真を撮影する"
+              />
+              <input
+                type="file"
+                id="expense-record-photo-roll"
+                class="visually-hidden"
+                accept="image/*"
+                tabindex="-1"
+                aria-label="カメラロールから画像を選ぶ"
+              />
+              <div class="expense-photo-actions__buttons">
+                <label for="expense-record-photo-browse" class="btn btn--ghost btn--small expense-photo-actions__btn">参照</label>
+                <label for="expense-record-photo-camera" class="btn btn--ghost btn--small expense-photo-actions__btn">写真を撮影</label>
+                <label for="expense-record-photo-roll" class="btn btn--ghost btn--small expense-photo-actions__btn">カメラロール</label>
+              </div>
+              <p id="expense-photo-pick-status" class="expense-photo-pick-status" aria-live="polite"></p>
+              <p class="form__hint form__hint--expense-photo">
+                いずれかのボタンで画像を選びます。保存時に JPEG に縮小して記録します（端末やブラウザにより、ボタンの挙動が近い場合があります）。
+              </p>
+            </div>
+          </div>
+          <button type="button" class="btn btn--primary" id="btn-expense-record-save">保存する</button>
+        </form>
+
+        <h3 class="expense-records__list-heading">表示中の月の一覧</h3>
+        <ul id="expense-record-list" class="expense-record-list"></ul>
+        <p id="expense-record-empty" class="expense-record-empty" hidden>この月の経費記録はまだありません</p>
+      </section>
+      <footer class="footer scroll-reveal">
+        <p>データはこのブラウザのローカルに保存されます。写真付きはバックアップ JSON が大きくなります。</p>
+      </footer>
+    </main>
+
+    <div
+      id="pwa-install-banner"
+      class="pwa-install-banner"
+      role="region"
+      aria-label="アプリとしてインストール"
+      hidden
+    >
+      <div class="pwa-install-banner__inner">
+        <p class="pwa-install-banner__text" id="pwa-install-banner-text"></p>
+        <div class="pwa-install-banner__actions">
+          <button type="button" class="btn btn--primary btn--small" id="pwa-install-do" hidden>インストール</button>
+          <button type="button" class="btn btn--ghost btn--small" id="pwa-install-dismiss">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="dialog-pwa-guide" class="edit-dialog pwa-guide-dialog" aria-labelledby="pwa-guide-title">
+    <div class="edit-dialog__form">
+      <h2 id="pwa-guide-title" class="edit-dialog__title">アプリとして使う（PWA）</h2>
+      <div class="edit-dialog__lead pwa-guide-dialog__body">
+        <p>
+          この家計簿は<strong>プログレッシブウェブアプリ（PWA）</strong>です。ホーム画面やスタートメニューに追加すると、ブラウザのタブなしで<strong>アプリのように全画面</strong>で開けます。
+        </p>
+        <p><strong>Android（Chrome など）</strong></p>
+        <ol class="pwa-guide-dialog__steps">
+          <li>画面に「インストール」と出たらタップするか、メニュー（⋮）から<strong>アプリのインストール</strong>／<strong>ホーム画面に追加</strong>を選びます。</li>
+          <li>初回はオンラインで開いておくと、あとでオフラインでも画面が表示されやすくなります。</li>
+        </ol>
+        <p><strong>iPhone / iPad（Safari 推奨）</strong></p>
+        <ol class="pwa-guide-dialog__steps">
+          <li>画面下の<strong>共有</strong>ボタン（□に↑）をタップします。</li>
+          <li><strong>ホーム画面に追加</strong>を選び、名前を確認して追加します。</li>
+          <li>ホーム画面のアイコンから起動すると、ブラウザの UI が省けた表示になります。</li>
+        </ol>
+        <p><strong>パソコン（Chrome / Edge）</strong></p>
+        <p class="pwa-guide-dialog__note">アドレスバー右のインストールアイコン、またはメニューから「アプリとしてインストール」を選べます。</p>
+        <p class="pwa-guide-dialog__notice">
+          <strong>注意:</strong> <code>file://</code> で開いている場合はインストールできません。<code>https://</code> または <code>http://localhost</code> で開いてください。データは引き続きこの端末のブラウザ内に保存されます。
+        </p>
+      </div>
+      <div class="edit-dialog__actions">
+        <button type="button" class="btn btn--primary" id="btn-pwa-guide-close">閉じる</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="dialog-breakdown-pick" class="edit-dialog breakdown-pick-dialog" aria-labelledby="breakdown-pick-title">
+    <div class="breakdown-pick-dialog__inner">
+      <div id="breakdown-pick-step-list">
+        <h2 id="breakdown-pick-title" class="edit-dialog__title">取引を選んで修正</h2>
+        <p id="breakdown-pick-desc" class="breakdown-pick-dialog__desc"></p>
+        <ul id="breakdown-pick-list" class="breakdown-pick-list"></ul>
+        <p id="breakdown-pick-empty" class="breakdown-pick-dialog__empty" hidden>該当する取引がありません</p>
+        <div class="edit-dialog__actions">
+          <button type="button" class="btn btn--ghost" id="btn-breakdown-pick-close">閉じる</button>
+        </div>
+      </div>
+
+      <div id="breakdown-pick-step-edit" class="breakdown-pick-step-edit" hidden>
+        <form id="form-inline-edit-entry" class="form breakdown-pick-step-edit__form" novalidate>
+          <h2 class="edit-dialog__title">取引を修正</h2>
+          <p class="edit-dialog__lead breakdown-pick-step-edit__lead">
+            <strong>金額・日付・メモ・種別</strong>を変更して保存すると上書きされます（カテゴリは変えずにそのまま保存されます）。
+          </p>
+          <input type="hidden" id="inline-edit-entry-id" value="" />
+
+          <div class="edit-dialog__target-banner" id="edit-target-banner">
+            <div class="edit-dialog__target-banner-label">修正前の登録内容（参照）</div>
+            <p id="edit-target-banner-desc" class="edit-dialog__target-banner-desc"></p>
+          </div>
+
+          <fieldset class="form__row form__row--radio">
+            <legend class="form__legend">種別</legend>
+            <label class="radio">
+              <input type="radio" name="edit-kind" value="income" />
+              <span>収入</span>
+            </label>
+            <label class="radio">
+              <input type="radio" name="edit-kind" value="expense" />
+              <span>支出</span>
+            </label>
+          </fieldset>
+          <div class="form--edit-entry__grid">
+            <div class="form__row">
+              <label for="edit-date">日付</label>
+              <div class="date-field">
+                <input type="date" id="edit-date" class="date-field__input" required readonly />
+                <button type="button" class="date-field__calendar-btn" aria-label="カレンダーを開く">
+                  <svg class="date-field__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="form__row">
+              <label for="edit-amount">金額（円）</label>
+              <input type="number" id="edit-amount" class="input--amount-center" min="1" step="1" inputmode="numeric" required />
+            </div>
+            <div class="form__row form__row--grow">
+              <label for="edit-note">メモ（任意）</label>
+              <input type="text" id="edit-note" maxlength="200" />
+            </div>
+          </div>
+
+          <div class="edit-dialog__actions edit-dialog__actions--split">
+            <div class="edit-dialog__actions-start">
+              <button type="button" class="btn btn--ghost" id="btn-inline-edit-back" hidden>一覧に戻る</button>
+              <button type="button" class="btn btn--ghost" id="btn-inline-edit-close">閉じる</button>
+            </div>
+            <div class="edit-dialog__actions-end">
+              <button type="button" class="btn btn--primary" id="btn-inline-edit-save">保存</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="dialog-fixed-expense" class="edit-dialog" aria-labelledby="fixed-expense-dialog-title">
+    <form id="form-fixed-expense" class="form edit-dialog__form" novalidate>
+      <h2 id="fixed-expense-dialog-title" class="edit-dialog__title">固定支出を追加</h2>
+      <input type="hidden" id="fixed-expense-edit-id" value="" />
+      <div class="form__row">
+        <label for="fixed-expense-name">項目名</label>
+        <input type="text" id="fixed-expense-name" required maxlength="80" placeholder="例: 家賃" autocomplete="off" />
+      </div>
+      <div class="form__row">
+        <label for="fixed-expense-amount">月額（円）</label>
+        <input
+          type="number"
+          id="fixed-expense-amount"
+          class="input--amount-center"
+          min="0"
+          step="1"
+          inputmode="numeric"
+          required
+          placeholder="例: 73490"
+        />
+      </div>
+      <div class="edit-dialog__actions edit-dialog__actions--split">
+        <button type="button" class="btn btn--ghost" id="btn-fixed-expense-cancel">キャンセル</button>
+        <button type="button" class="btn btn--primary" id="btn-fixed-expense-save">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dialog-gdrive-settings" class="edit-dialog gdrive-settings-dialog" aria-labelledby="gdrive-settings-title">
+    <div class="edit-dialog__form">
+      <h2 id="gdrive-settings-title" class="edit-dialog__title">Googleドライブ連携</h2>
+      <div class="edit-dialog__lead gdrive-settings__help">
+        <p>指定したフォルダにバックアップ用の JSON を作成します。認証は Google の画面でのみ行われ、このアプリのサーバーはありません。</p>
+        <ol class="gdrive-settings__steps">
+          <li>
+            <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer">Google Drive API</a>
+            を有効にする
+          </li>
+          <li>
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">認証情報</a>
+            から OAuth 2.0 クライアント ID（<strong>ウェブアプリケーション</strong>）を作成する
+          </li>
+          <li>承認済みの JavaScript 生成元に、このページのオリジン（例: <code>http://localhost:5173</code>）を追加する</li>
+          <li>ドライブで保存用フォルダを開き、URL の <code>folders/</code> の直後の ID を「保存先フォルダ ID」に貼り付ける（URL ごと貼り付けても構いません）</li>
+        </ol>
+        <p class="gdrive-settings__notice">
+          OAuth の公開ステータスが「テスト」のときは、コンソールの「テストユーザー」にご利用の Google アカウントを追加してください。<code>file://</code> では利用できません（<code>https</code> または <code>http://localhost</code> が必要です）。初回保存時にドライブへのアクセス許可を求められます。
+        </p>
+      </div>
+      <div class="form__row">
+        <label for="gdrive-client-id">OAuth 2.0 クライアント ID</label>
+        <input type="text" id="gdrive-client-id" class="gdrive-settings__input" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="form__row">
+        <label for="gdrive-folder-id">保存先フォルダ ID</label>
+        <input type="text" id="gdrive-folder-id" class="gdrive-settings__input" autocomplete="off" spellcheck="false" placeholder="folders/ の後の文字列、またはフォルダのURL" />
+      </div>
+      <div class="edit-dialog__actions">
+        <button type="button" class="btn btn--ghost" id="btn-gdrive-settings-cancel">閉じる</button>
+        <button type="button" class="btn btn--primary" id="btn-gdrive-settings-save">設定を保存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+{
+  "id": "./index.html",
+  "name": "家計簿 · 収入・支出管理",
+  "short_name": "家計簿",
+  "description": "収入・支出の記録（ローカル保存）。ホーム画面に追加してアプリのように利用できます。オフライン対応。",
+  "start_url": "./index.html#/",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "background_color": "#fff5f8",
+  "theme_color": "#fff5f8",
+  "lang": "ja",
+  "dir": "ltr",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "トップ（合計）",
+      "short_name": "トップ",
+      "description": "今月の合計と内訳",
+      "url": "./index.html#/",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "入力",
+      "short_name": "入力",
+      "description": "支出・収入の入力",
+      "url": "./index.html#/input/food",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "経費",
+      "short_name": "経費",
+      "description": "メモと領収書の写真",
+      "url": "./index.html#/expenses",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
