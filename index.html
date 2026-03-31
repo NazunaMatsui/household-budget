@@ -41,8 +41,6 @@
       </div>
       <div class="header__actions">
         <button type="button" class="btn btn--ghost" id="btn-export">バックアップ（JSON）</button>
-        <button type="button" class="btn btn--ghost" id="btn-export-gdrive">ドライブへ保存</button>
-        <button type="button" class="btn btn--ghost btn--small" id="btn-gdrive-settings" title="Googleドライブの保存先とクライアントID">ドライブ設定</button>
         <label class="btn btn--ghost btn--file">
           復元
           <input type="file" id="input-import" accept="application/json" hidden />
@@ -814,42 +812,6 @@
         <button type="button" class="btn btn--primary" id="btn-fixed-expense-save">保存</button>
       </div>
     </form>
-  </dialog>
-
-  <dialog id="dialog-gdrive-settings" class="edit-dialog gdrive-settings-dialog" aria-labelledby="gdrive-settings-title">
-    <div class="edit-dialog__form">
-      <h2 id="gdrive-settings-title" class="edit-dialog__title">Googleドライブ連携</h2>
-      <div class="edit-dialog__lead gdrive-settings__help">
-        <p>指定したフォルダにバックアップ用の JSON を作成します。認証は Google の画面でのみ行われ、このアプリのサーバーはありません。</p>
-        <ol class="gdrive-settings__steps">
-          <li>
-            <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer">Google Drive API</a>
-            を有効にする
-          </li>
-          <li>
-            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">認証情報</a>
-            から OAuth 2.0 クライアント ID（<strong>ウェブアプリケーション</strong>）を作成する
-          </li>
-          <li>承認済みの JavaScript 生成元に、このページのオリジン（例: <code>http://localhost:5173</code>）を追加する</li>
-          <li>ドライブで保存用フォルダを開き、URL の <code>folders/</code> の直後の ID を「保存先フォルダ ID」に貼り付ける（URL ごと貼り付けても構いません）</li>
-        </ol>
-        <p class="gdrive-settings__notice">
-          OAuth の公開ステータスが「テスト」のときは、コンソールの「テストユーザー」にご利用の Google アカウントを追加してください。<code>file://</code> では利用できません（<code>https</code> または <code>http://localhost</code> が必要です）。初回保存時にドライブへのアクセス許可を求められます。
-        </p>
-      </div>
-      <div class="form__row">
-        <label for="gdrive-client-id">OAuth 2.0 クライアント ID</label>
-        <input type="text" id="gdrive-client-id" class="gdrive-settings__input" autocomplete="off" spellcheck="false" />
-      </div>
-      <div class="form__row">
-        <label for="gdrive-folder-id">保存先フォルダ ID</label>
-        <input type="text" id="gdrive-folder-id" class="gdrive-settings__input" autocomplete="off" spellcheck="false" placeholder="folders/ の後の文字列、またはフォルダのURL" />
-      </div>
-      <div class="edit-dialog__actions">
-        <button type="button" class="btn btn--ghost" id="btn-gdrive-settings-cancel">閉じる</button>
-        <button type="button" class="btn btn--primary" id="btn-gdrive-settings-save">設定を保存</button>
-      </div>
-    </div>
   </dialog>
 
   <script src="app.js" defer></script>

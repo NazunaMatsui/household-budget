@@ -23,6 +23,6 @@ npm start
 
 ---
 
-PWA・Google ドライブ保存は **`https` または `http://localhost`** でのみ利用できます。`file://` では動きません。
+PWA（ホーム画面への追加など）は **`https` または `http://localhost`** で開いたときに利用できます。`file://` では制限があります。
 
 停止するときはターミナルで `Ctrl+C` です。

@@ -2,7 +2,7 @@
  * 家計簿 PWA — 静的ファイルを先読みキャッシュ（オフライン時はキャッシュ優先）
  * 利用条件: https または http://localhost（file:// では登録不可）
  */
-const CACHE_NAME = "household-budget-pwa-v38";
+const CACHE_NAME = "household-budget-pwa-v39";
 
 const PRECACHE_FILES = [
   "index.html",

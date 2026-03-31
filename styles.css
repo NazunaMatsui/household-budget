@@ -2085,50 +2085,6 @@ textarea:focus {
   }
 }
 
-/* Googleドライブ連携（設定ダイアログ） */
-.gdrive-settings-dialog {
-  max-width: min(32rem, calc(100vw - 2rem));
-}
-
-.gdrive-settings__help {
-  max-height: min(42vh, 15rem);
-  overflow-y: auto;
-  margin: 0 0 1rem;
-  padding-right: 0.35rem;
-}
-
-.gdrive-settings__help p {
-  margin: 0 0 0.6rem;
-  font-size: 0.84rem;
-  line-height: 1.55;
-  color: var(--muted);
-}
-
-.gdrive-settings__steps {
-  margin: 0 0 0.75rem 1.15rem;
-  padding: 0;
-  font-size: 0.82rem;
-  line-height: 1.55;
-  color: var(--muted);
-}
-
-.gdrive-settings__steps li {
-  margin-bottom: 0.35rem;
-}
-
-.gdrive-settings__notice {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: var(--muted);
-}
-
-.gdrive-settings__input {
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
 /* 取引修正ダイアログ（閉じた dialog は .edit-dialog の flex が UA 非表示を上書きしないよう明示） */
 dialog.edit-dialog:not([open]) {
   display: none !important;
