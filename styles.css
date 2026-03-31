@@ -1080,6 +1080,8 @@ body {
   display: grid;
   gap: 0.85rem 1rem;
   align-items: end;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 720px) {
@@ -1206,6 +1208,8 @@ body {
   display: grid;
   gap: 0.85rem 1rem;
   align-items: end;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 720px) {
@@ -1608,6 +1612,28 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.form__row .date-field {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.form__row > input:not(.date-field__input),
+.form__row > select,
+.form__row > textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.form__row--submit {
+  align-items: stretch;
 }
 
 .form__row label,
@@ -1652,6 +1678,10 @@ body {
 input[type="text"],
 input[type="number"],
 input[type="date"],
+input[type="url"],
+input[type="password"],
+input[type="search"],
+input[type="email"],
 select {
   font: inherit;
   color: var(--text);
@@ -1660,6 +1690,9 @@ select {
   border-radius: var(--radius-sm);
   padding: 0.55rem 0.7rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 textarea {
@@ -1672,7 +1705,9 @@ textarea {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+  resize: vertical;
 }
 
 input:focus,
@@ -1684,7 +1719,8 @@ textarea:focus {
 }
 
 .select {
-  min-width: 8rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .btn {
@@ -2195,6 +2231,8 @@ dialog.edit-dialog:not([open]) {
   display: grid;
   gap: 0.85rem 1rem;
   align-items: end;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 720px) {
@@ -2204,6 +2242,21 @@ dialog.edit-dialog:not([open]) {
 
   .form--edit-entry__grid .form__row--grow {
     min-width: 0;
+  }
+}
+
+/* 狭い画面：送信ボタンを行幅いっぱいに（グリッド1列時） */
+@media (max-width: 719px) {
+  .form--food__grid .form__row--submit .btn,
+  .form--variable-pay__grid .form__row--submit .btn,
+  .form--edit-entry__grid .form__row--submit .btn {
+    width: 100%;
+  }
+
+  .form > .btn.btn--primary {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 }
 
@@ -2597,6 +2650,12 @@ dialog.edit-dialog:not([open]) {
   .panel__head .filters {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .panel__head .filters .select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .panel__title {
