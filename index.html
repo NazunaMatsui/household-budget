@@ -40,6 +40,7 @@
         </div>
       </div>
       <div class="header__actions">
+        <button type="button" class="btn btn--ghost btn--small" id="btn-sync">クラウド同期</button>
         <button type="button" class="btn btn--ghost" id="btn-export">バックアップ（JSON）</button>
         <label class="btn btn--ghost btn--file">
           復元
@@ -810,6 +811,27 @@
       <div class="edit-dialog__actions edit-dialog__actions--split">
         <button type="button" class="btn btn--ghost" id="btn-fixed-expense-cancel">キャンセル</button>
         <button type="button" class="btn btn--primary" id="btn-fixed-expense-save">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dialog-sync" class="edit-dialog" aria-labelledby="sync-dialog-title">
+    <form id="form-sync" class="form edit-dialog__form" novalidate>
+      <h2 id="sync-dialog-title" class="edit-dialog__title">クラウド同期</h2>
+      <p class="edit-dialog__lead">
+        好きな合言葉（数字やパスワードなど）を決めてください。同じ合言葉を他の端末でも入力すると、データが自動的に同期されます。アカウント登録やメールアドレスは不要です。
+      </p>
+      <div class="form__row">
+        <label for="sync-passcode">合言葉</label>
+        <input type="password" id="sync-passcode" name="sync-passcode" autocomplete="off" minlength="4" required />
+      </div>
+      <p class="sync-dialog__message" id="sync-dialog-message" role="status" aria-live="polite" hidden></p>
+      <div class="edit-dialog__actions edit-dialog__actions--split">
+        <button type="button" class="btn btn--ghost" id="btn-sync-close">閉じる</button>
+        <div class="edit-dialog__actions-end">
+          <button type="button" class="btn btn--ghost" id="btn-sync-forget" hidden>同期を解除</button>
+          <button type="button" class="btn btn--primary" id="btn-sync-start">同期を開始</button>
+        </div>
       </div>
     </form>
   </dialog>

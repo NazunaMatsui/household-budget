@@ -193,6 +193,7 @@ function isValidEntry(e) {
 function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    queueCloudPush(state);
   } catch (e) {
     const name = e && typeof e === "object" && "name" in e ? String(/** @type {{ name?: string }} */ (e).name) : "";
     const msg = e instanceof Error ? e.message : String(e);
@@ -528,6 +529,13 @@ const el = {
   btnExpenseRecordSave: document.getElementById("btn-expense-record-save"),
   expenseRecordList: document.getElementById("expense-record-list"),
   expenseRecordEmpty: document.getElementById("expense-record-empty"),
+  btnSync: document.getElementById("btn-sync"),
+  dialogSync: document.getElementById("dialog-sync"),
+  syncPasscode: document.getElementById("sync-passcode"),
+  syncMessage: document.getElementById("sync-dialog-message"),
+  btnSyncClose: document.getElementById("btn-sync-close"),
+  btnSyncForget: document.getElementById("btn-sync-forget"),
+  btnSyncStart: document.getElementById("btn-sync-start"),
 };
 
 /** @type {{ version: number, entries: Entry[], fixedExpenses: FixedExpenseItem[], expenseRecords: ExpenseRecord[] }} */
@@ -2606,3 +2614,204 @@ if (!location.hash || location.hash === "#") {
   history.replaceState(null, "", "#/");
 }
 applyRoute();
+
+// --- クラウド同期（Supabase・合言葉方式） ---
+// アカウント登録は行わない。合言葉のSHA-256ハッシュを鍵として、Postgres関数(RPC)経由でのみ
+// データを読み書きする（テーブルへの直接アクセスはRLSで全拒否、鍵を知らないと取得できない）。
+// ローカル（localStorage）を常に第一の保存先とし、これはあくまで端末間同期の追加レイヤー。
+// Supabaseへの通信に失敗してもアプリはローカルのみで問題なく動作し続ける。
+
+const SUPABASE_URL = "https://zplpppzyeupmtzmregzp.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_FfAru6hOFc3apJK-AGmHCA_5GRgqM1q";
+const SYNC_KEY_STORAGE_KEY = "household-budget-sync-key-hash-v1";
+const SYNC_POLL_INTERVAL_MS = 10000;
+
+/** @type {import("@supabase/supabase-js").SupabaseClient | null} */
+let supabaseClient = null;
+let syncKeyHash = /** @type {string | null} */ (localStorage.getItem(SYNC_KEY_STORAGE_KEY));
+let isApplyingRemoteUpdate = false;
+let cloudPushTimer = /** @type {ReturnType<typeof setTimeout> | null} */ (null);
+let syncPollTimer = /** @type {ReturnType<typeof setInterval> | null} */ (null);
+
+/** @param {string} text */
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** @param {FixedExpenseItem[]} list */
+function isDefaultFixedExpenseSet(list) {
+  if (list.length !== DEFAULT_FIXED_EXPENSE_TEMPLATE.length) return false;
+  return list.every(
+    (item, i) => item.name === DEFAULT_FIXED_EXPENSE_TEMPLATE[i].name && item.amount === DEFAULT_FIXED_EXPENSE_TEMPLATE[i].amount
+  );
+}
+
+/** @param {{ entries: Entry[], fixedExpenses: FixedExpenseItem[], expenseRecords: ExpenseRecord[] }} s */
+function hasMeaningfulLocalData(s) {
+  return s.entries.length > 0 || s.expenseRecords.length > 0 || !isDefaultFixedExpenseSet(s.fixedExpenses);
+}
+
+/** @param {unknown} remoteData */
+function applyRemoteState(remoteData) {
+  if (!remoteData || typeof remoteData !== "object" || !Array.isArray(/** @type {any} */ (remoteData).entries)) return;
+  const r = /** @type {{ entries: unknown[], fixedExpenses?: unknown, expenseRecords?: unknown }} */ (remoteData);
+  isApplyingRemoteUpdate = true;
+  try {
+    state = {
+      version: 1,
+      entries: r.entries.filter(isValidEntry),
+      fixedExpenses: normalizeFixedExpensesArray(r.fixedExpenses ?? []),
+      expenseRecords: normalizeExpenseRecordsArray(r.expenseRecords ?? []),
+    };
+    saveState(state);
+    render();
+  } finally {
+    isApplyingRemoteUpdate = false;
+  }
+}
+
+/** @param {{ version: number, entries: Entry[], fixedExpenses: FixedExpenseItem[], expenseRecords: ExpenseRecord[] }} nextState @param {string} hash */
+async function pushStateNow(nextState, hash) {
+  if (!supabaseClient) return;
+  const { error } = await supabaseClient.rpc("upsert_budget_sync", { p_hash: hash, p_data: nextState });
+  if (error) console.warn("クラウドへのアップロードに失敗しました", error);
+}
+
+/** @param {{ version: number, entries: Entry[], fixedExpenses: FixedExpenseItem[], expenseRecords: ExpenseRecord[] }} nextState */
+function queueCloudPush(nextState) {
+  if (!supabaseClient || !syncKeyHash || isApplyingRemoteUpdate) return;
+  if (cloudPushTimer) clearTimeout(cloudPushTimer);
+  const hash = syncKeyHash;
+  cloudPushTimer = setTimeout(() => {
+    void pushStateNow(nextState, hash);
+  }, 800);
+}
+
+/** @param {string} hash @param {{ silent?: boolean }} [opts] */
+async function pullAndMergeCloudState(hash, opts = {}) {
+  if (!supabaseClient) return;
+  const { data, error } = await supabaseClient.rpc("get_budget_sync", { p_hash: hash });
+  if (error) {
+    console.warn("クラウドからの取得に失敗しました", error);
+    return;
+  }
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) {
+    if (!opts.silent) await pushStateNow(state, hash);
+    return;
+  }
+  if (!opts.silent && hasMeaningfulLocalData(state)) {
+    const updatedAtText = new Date(row.updated_at).toLocaleString("ja-JP");
+    const useCloud = confirm(
+      `クラウドに保存済みのデータ（更新: ${updatedAtText}）が見つかりました。\nクラウドのデータを使いますか？\n（キャンセルすると、この端末のデータをクラウドにアップロードして上書きします）`
+    );
+    if (!useCloud) {
+      await pushStateNow(state, hash);
+      return;
+    }
+  }
+  applyRemoteState(row.data);
+}
+
+function stopSyncPolling() {
+  if (syncPollTimer) {
+    clearInterval(syncPollTimer);
+    syncPollTimer = null;
+  }
+}
+
+/** @param {string} hash */
+function startSyncPolling(hash) {
+  stopSyncPolling();
+  syncPollTimer = setInterval(() => {
+    if (document.visibilityState === "visible") void pullAndMergeCloudState(hash, { silent: true });
+  }, SYNC_POLL_INTERVAL_MS);
+}
+
+function updateSyncStatusUi() {
+  const active = !!syncKeyHash;
+  if (el.btnSync) el.btnSync.textContent = active ? "クラウド同期: 有効" : "クラウド同期";
+  if (el.btnSyncForget) el.btnSyncForget.hidden = !active;
+}
+
+/** @param {string} hash */
+function activateSync(hash) {
+  syncKeyHash = hash;
+  localStorage.setItem(SYNC_KEY_STORAGE_KEY, hash);
+  updateSyncStatusUi();
+  void pullAndMergeCloudState(hash).then(() => startSyncPolling(hash));
+}
+
+function deactivateSync() {
+  syncKeyHash = null;
+  localStorage.removeItem(SYNC_KEY_STORAGE_KEY);
+  stopSyncPolling();
+  updateSyncStatusUi();
+}
+
+function wireSyncUi() {
+  /** @param {string} msg @param {boolean} isError */
+  function showSyncMessage(msg, isError) {
+    if (!el.syncMessage) return;
+    el.syncMessage.textContent = msg;
+    el.syncMessage.hidden = false;
+    el.syncMessage.classList.toggle("sync-dialog__message--error", isError);
+  }
+
+  el.btnSync?.addEventListener("click", () => {
+    if (el.syncMessage) el.syncMessage.hidden = true;
+    if (el.syncPasscode) el.syncPasscode.value = "";
+    el.dialogSync?.showModal();
+  });
+
+  el.btnSyncClose?.addEventListener("click", () => el.dialogSync?.close());
+  el.dialogSync?.addEventListener("click", (ev) => {
+    if (ev.target === el.dialogSync) el.dialogSync.close();
+  });
+
+  el.btnSyncStart?.addEventListener("click", async () => {
+    if (!supabaseClient) {
+      showSyncMessage("クラウド同期の準備ができていません。しばらくしてからもう一度お試しください。", true);
+      return;
+    }
+    const passcode = el.syncPasscode?.value ?? "";
+    if (passcode.length < 4) {
+      showSyncMessage("合言葉は4文字以上にしてください", true);
+      return;
+    }
+    const hash = await sha256Hex(passcode);
+    activateSync(hash);
+    el.dialogSync?.close();
+  });
+
+  el.btnSyncForget?.addEventListener("click", () => {
+    if (!confirm("この端末のクラウド同期を解除しますか（ローカルのデータはそのまま残ります）")) return;
+    deactivateSync();
+    el.dialogSync?.close();
+  });
+
+  updateSyncStatusUi();
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && syncKeyHash) {
+    void pullAndMergeCloudState(syncKeyHash, { silent: true });
+  }
+});
+
+(async function initCloudSync() {
+  try {
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } catch (e) {
+    console.warn("クラウド同期の初期化に失敗しました。ローカル保存のみで動作します。", e);
+    return;
+  }
+
+  wireSyncUi();
+  if (syncKeyHash) {
+    void pullAndMergeCloudState(syncKeyHash).then(() => startSyncPolling(syncKeyHash));
+  }
+})();
+
