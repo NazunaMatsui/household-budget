@@ -2,7 +2,7 @@
  * 家計簿 PWA — 静的ファイルを先読みキャッシュ（オフライン時はキャッシュ優先）
  * 利用条件: https または http://localhost（file:// では登録不可）
  */
-const CACHE_NAME = "household-budget-pwa-v41";
+const CACHE_NAME = "household-budget-pwa-v42";
 
 const PRECACHE_FILES = [
   "index.html",
@@ -46,6 +46,7 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/api/")) return; // クラウド同期APIは常にネットワークから取得する
 
   const indexHref = new URL("index.html", self.location).href;
 

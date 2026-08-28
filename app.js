@@ -2615,19 +2615,15 @@ if (!location.hash || location.hash === "#") {
 }
 applyRoute();
 
-// --- クラウド同期（Supabase・合言葉方式） ---
-// アカウント登録は行わない。合言葉のSHA-256ハッシュを鍵として、Postgres関数(RPC)経由でのみ
-// データを読み書きする（テーブルへの直接アクセスはRLSで全拒否、鍵を知らないと取得できない）。
+// --- クラウド同期（Cloudflare Pages Functions + D1・合言葉方式） ---
+// アカウント登録は行わない。合言葉のSHA-256ハッシュを鍵として、同一オリジンの /api/budget を
+// 経由してのみデータを読み書きする（鍵を知らないと該当データは取得できない）。
 // ローカル（localStorage）を常に第一の保存先とし、これはあくまで端末間同期の追加レイヤー。
-// Supabaseへの通信に失敗してもアプリはローカルのみで問題なく動作し続ける。
+// クラウドへの通信に失敗してもアプリはローカルのみで問題なく動作し続ける。
 
-const SUPABASE_URL = "https://zplpppzyeupmtzmregzp.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_FfAru6hOFc3apJK-AGmHCA_5GRgqM1q";
 const SYNC_KEY_STORAGE_KEY = "household-budget-sync-key-hash-v1";
 const SYNC_POLL_INTERVAL_MS = 10000;
 
-/** @type {import("@supabase/supabase-js").SupabaseClient | null} */
-let supabaseClient = null;
 let syncKeyHash = /** @type {string | null} */ (localStorage.getItem(SYNC_KEY_STORAGE_KEY));
 let isApplyingRemoteUpdate = false;
 let cloudPushTimer = /** @type {ReturnType<typeof setTimeout> | null} */ (null);
@@ -2673,14 +2669,21 @@ function applyRemoteState(remoteData) {
 
 /** @param {{ version: number, entries: Entry[], fixedExpenses: FixedExpenseItem[], expenseRecords: ExpenseRecord[] }} nextState @param {string} hash */
 async function pushStateNow(nextState, hash) {
-  if (!supabaseClient) return;
-  const { error } = await supabaseClient.rpc("upsert_budget_sync", { p_hash: hash, p_data: nextState });
-  if (error) console.warn("クラウドへのアップロードに失敗しました", error);
+  try {
+    const res = await fetch("/api/budget", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hash, data: nextState }),
+    });
+    if (!res.ok) console.warn("クラウドへのアップロードに失敗しました", res.status);
+  } catch (e) {
+    console.warn("クラウドへのアップロードに失敗しました", e);
+  }
 }
 
 /** @param {{ version: number, entries: Entry[], fixedExpenses: FixedExpenseItem[], expenseRecords: ExpenseRecord[] }} nextState */
 function queueCloudPush(nextState) {
-  if (!supabaseClient || !syncKeyHash || isApplyingRemoteUpdate) return;
+  if (!syncKeyHash || isApplyingRemoteUpdate) return;
   if (cloudPushTimer) clearTimeout(cloudPushTimer);
   const hash = syncKeyHash;
   cloudPushTimer = setTimeout(() => {
@@ -2690,13 +2693,23 @@ function queueCloudPush(nextState) {
 
 /** @param {string} hash @param {{ silent?: boolean }} [opts] */
 async function pullAndMergeCloudState(hash, opts = {}) {
-  if (!supabaseClient) return;
-  const { data, error } = await supabaseClient.rpc("get_budget_sync", { p_hash: hash });
-  if (error) {
-    console.warn("クラウドからの取得に失敗しました", error);
+  /** @type {{ data: unknown, updated_at: string } | null} */
+  let row = null;
+  try {
+    const res = await fetch("/api/budget?hash=" + encodeURIComponent(hash));
+    if (res.status === 404) {
+      row = null;
+    } else if (!res.ok) {
+      console.warn("クラウドからの取得に失敗しました", res.status);
+      return;
+    } else {
+      row = await res.json();
+    }
+  } catch (e) {
+    console.warn("クラウドからの取得に失敗しました", e);
     return;
   }
-  const row = Array.isArray(data) ? data[0] : null;
+
   if (!row) {
     if (!opts.silent) await pushStateNow(state, hash);
     return;
@@ -2771,10 +2784,6 @@ function wireSyncUi() {
   });
 
   el.btnSyncStart?.addEventListener("click", async () => {
-    if (!supabaseClient) {
-      showSyncMessage("クラウド同期の準備ができていません。しばらくしてからもう一度お試しください。", true);
-      return;
-    }
     const passcode = el.syncPasscode?.value ?? "";
     if (passcode.length < 4) {
       showSyncMessage("合言葉は4文字以上にしてください", true);
@@ -2800,15 +2809,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-(async function initCloudSync() {
-  try {
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  } catch (e) {
-    console.warn("クラウド同期の初期化に失敗しました。ローカル保存のみで動作します。", e);
-    return;
-  }
-
+(function initCloudSync() {
   wireSyncUi();
   if (syncKeyHash) {
     void pullAndMergeCloudState(syncKeyHash).then(() => startSyncPolling(syncKeyHash));
